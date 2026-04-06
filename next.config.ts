@@ -1,7 +1,25 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
+import createNextIntlPlugin from 'next-intl/plugin'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'img.clerk.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'uploadthing.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'utfs.io',
+      },
+    ],
+  },
+}
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
+
+export default withNextIntl(nextConfig)
