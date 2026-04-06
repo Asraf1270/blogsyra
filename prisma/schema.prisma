@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String
+  role      Role     @default(USER)
+  bio       String?  @db.Text
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  bookmarks Bookmark[]
+
+  @@index([clerkId])
+  @@index([email])
+  @@index([role])
+}
+
+model Post {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  content     Json       // Tiptap JSON content
+  excerpt     String?    @db.Text
+  coverImage  String?
+  status      PostStatus @default(DRAFT)
+  views       Int        @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id], onDelete: CASCADE)
+  categoryId  String?
+  category    Category?  @relation(fields: [categoryId], references: [id])
+  tags        PostTag[]
+  comments    Comment[]
+  likes       Like[]
+  bookmarks   Bookmark[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([views(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@index([authorId])
+  @@index([status, publishedAt])
+  @@index([categoryId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts     Post[]
+
+  @@index([slug])
+  @@index([name])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  // Relations
+  posts     PostTag[]
+
+  @@index([slug])
+  @@index([name])
+}
+
+model PostTag {
+  id        String @id @default(cuid())
+  postId    String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  // Relations
+  post      Post   @relation(fields: [postId], references: [id], onDelete: CASCADE)
+  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: CASCADE)
+
+  @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  isEdited   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: CASCADE)
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: CASCADE)
+  parentId   String?  // For nested replies
+  parent     Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: CASCADE)
+  replies    Comment[] @relation("CommentReplies")
+  likes      Like[]   // Optional: likes on comments
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([createdAt(sort: Desc)])
+  @@index([postId, createdAt(sort: Desc)])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: CASCADE)
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: CASCADE)
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: CASCADE)
+
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@index([userId])
+  @@index([postId])
+  @@index([commentId])
+  @@index([createdAt])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: CASCADE)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: CASCADE)
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+  @@index([createdAt(sort: Desc)])
+}
