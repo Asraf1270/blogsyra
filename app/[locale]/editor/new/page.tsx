@@ -1,154 +1,57 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { TiptapEditor } from '@/components/TiptapEditor'
-import { CoverImageUpload } from '@/components/CoverImageUpload'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAuth } from '@clerk/nextjs'
+import { PostForm } from '@/components/editor/PostForm'
+import { useToast } from '@/components/ui/use-toast'
 
-const postSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  slug: z.string().min(1, 'Slug is required'),
-  excerpt: z.string().optional(),
-  coverImage: z.string().optional(),
-})
-
-type PostFormData = z.infer<typeof postSchema>
-
-export default function NewPostPage() {
+export default function CreatePostPage() {
   const router = useRouter()
-  const t = useTranslations()
-  const [content, setContent] = useState(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<PostFormData>({
-    resolver: zodResolver(postSchema),
-    defaultValues: {
-      title: '',
-      slug: '',
-      excerpt: '',
-      coverImage: '',
-    }
-  })
-  
-  const coverImage = watch('coverImage')
-  
-  const onSubmit = async (data: PostFormData) => {
-    setIsSubmitting(true)
+  const { userId } = useAuth()
+  const { toast } = useToast()
+
+  const handleSubmit = async (data: any) => {
     try {
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          content,
-          status: 'DRAFT',
-        }),
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) throw new Error('Failed to create post')
+
+      const post = await response.json()
+      
+      toast({
+        title: 'Success!',
+        description: `Post ${data.status === 'PUBLISHED' ? 'published' : 'saved as draft'}`,
       })
       
-      if (response.ok) {
-        const post = await response.json()
-        router.push(`/dashboard/posts/${post.id}`)
-      }
+      router.push(`/dashboard/posts/${post.id}`)
     } catch (error) {
-      console.error('Error creating post:', error)
-    } finally {
-      setIsSubmitting(false)
+      toast({
+        title: 'Error',
+        description: 'Failed to create post. Please try again.',
+        variant: 'destructive',
+      })
     }
   }
-  
-  const generateSlug = (title: string) => {
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-    setValue('slug', slug)
-  }
-  
-  return (
-    <div className="container py-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold">Create New Post</h1>
-        
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Post Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  {...register('title')}
-                  onBlur={(e) => generateSlug(e.target.value)}
-                  placeholder="Enter post title"
-                />
-                {errors.title && (
-                  <p className="text-sm text-destructive mt-1">{errors.title.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="slug">URL Slug</Label>
-                <Input
-                  id="slug"
-                  {...register('slug')}
-                  placeholder="post-url-slug"
-                />
-                {errors.slug && (
-                  <p className="text-sm text-destructive mt-1">{errors.slug.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="excerpt">Excerpt</Label>
-                <Textarea
-                  id="excerpt"
-                  {...register('excerpt')}
-                  placeholder="Brief description of your post"
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <CoverImageUpload
-            value={coverImage}
-            onChange={(url) => setValue('coverImage', url)}
-          />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TiptapEditor
-                content={content}
-                onChange={setContent}
-                placeholder="Write your amazing content here..."
-              />
-            </CardContent>
-          </Card>
-          
-          <div className="flex gap-4">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save as Draft'}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => router.back()}>
-              Cancel
-            </Button>
-          </div>
-        </form>
+
+  if (!userId) {
+    return (
+      <div className="container py-8 text-center">
+        <p>Please sign in to create a post.</p>
       </div>
+    )
+  }
+
+  return (
+    <div className="container max-w-4xl py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Create New Post</h1>
+        <p className="text-muted-foreground">Share your story with the world</p>
+      </div>
+      <PostForm onSubmit={handleSubmit} />
     </div>
   )
 }
