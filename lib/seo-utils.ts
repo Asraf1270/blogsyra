@@ -67,3 +67,38 @@ export function generatePostMetadata(post: PostSEOData): Metadata {
     },
   }
 }
+
+export function generateProfileMetadata(profile: {
+  name: string
+  bio: string | null
+  avatarUrl: string | null
+  clerkId: string
+  postsCount: number
+}): Metadata {
+  const title = `${profile.name} | Blogsyra Profile`
+  const description = profile.bio || `${profile.name} on Blogsyra - ${profile.postsCount} posts published`
+  const url = `${process.env.NEXT_PUBLIC_APP_URL}/profile/${profile.clerkId}`
+  
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: 'Blogsyra',
+      images: profile.avatarUrl ? [{ url: profile.avatarUrl }] : [],
+      type: 'profile',
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+      images: profile.avatarUrl ? [profile.avatarUrl] : [],
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  }
+}

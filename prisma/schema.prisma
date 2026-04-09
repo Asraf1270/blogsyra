@@ -115,34 +115,26 @@ model PostTag {
 }
 
 model Comment {
-  id         String   @id @default(cuid())
-  content    String   @db.Text
-  isEdited   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  isEdited  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relations
   authorId   String
   author     User     @relation(fields: [authorId], references: [id], onDelete: CASCADE)
   postId     String
   post       Post     @relation(fields: [postId], references: [id], onDelete: CASCADE)
-  parentId   String?  // For nested replies
+  parentId   String?
   parent     Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: CASCADE)
   replies    Comment[] @relation("CommentReplies")
-  likes      Like[]   // Optional: likes on comments
-
-  @@index([postId])
-  @@index([authorId])
-  @@index([parentId])
-  @@index([createdAt(sort: Desc)])
-  @@index([postId, createdAt(sort: Desc)])
+  likes      Like[]
 }
 
 model Like {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  // Relations
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: CASCADE)
   postId    String?
@@ -155,21 +147,40 @@ model Like {
   @@index([userId])
   @@index([postId])
   @@index([commentId])
-  @@index([createdAt])
 }
 
 model Bookmark {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  // Relations
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: CASCADE)
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: CASCADE)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: CASCADE)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: CASCADE)
 
   @@unique([userId, postId])
   @@index([userId])
   @@index([postId])
-  @@index([createdAt(sort: Desc)])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: CASCADE)
+  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: CASCADE)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// Update User model with follow relations
+model User {
+  // ... existing fields ...
+  
+  followers Follow[] @relation("UserFollowing")
+  following Follow[] @relation("UserFollowers")
 }

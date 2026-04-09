@@ -148,3 +148,10 @@
 .animate-in {
   animation: slide-in-from-top 0.2s ease-out;
 }
+
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  background-size: 50px 50px;
+}

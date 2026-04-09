@@ -772,3 +772,272 @@ export async function getRelatedPosts({
     return { success: false, data: [], error: 'Failed to fetch related posts' }
   }
 }
+
+export async function getLatestPosts({ limit = 10 }: { limit?: number }) {
+  try {
+    const posts = await prisma.post.findMany({
+      where: {
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
+      },
+      include: {
+        author: {
+          select: {
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
+      take: limit,
+    })
+
+    return { success: true, data: posts }
+  } catch (error) {
+    console.error('Error fetching latest posts:', error)
+    return { success: false, data: [], error: 'Failed to fetch latest posts' }
+  }
+}
+
+export async function getTrendingPosts({ 
+  limit = 10, 
+  daysBack = 7 
+}: { 
+  limit?: number
+  daysBack?: number 
+}) {
+  try {
+    const dateThreshold = new Date()
+    dateThreshold.setDate(dateThreshold.getDate() - daysBack)
+
+    const posts = await prisma.post.findMany({
+      where: {
+        status: 'PUBLISHED',
+        publishedAt: { not: null },
+        OR: [
+          { publishedAt: { gte: dateThreshold } },
+          { views: { gt: 100 } },
+        ],
+      },
+      include: {
+        author: {
+          select: {
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: {
+              select: {
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
+      },
+      orderBy: [
+        { views: 'desc' },
+        { _count: { likes: 'desc' } },
+      ],
+      take: limit,
+    })
+
+    return { success: true, data: posts }
+  } catch (error) {
+    console.error('Error fetching trending posts:', error)
+    return { success: false, data: [], error: 'Failed to fetch trending posts' }
+  }
+}
+
+export async function searchPosts({ 
+  query, 
+  limit = 20, 
+  page = 1 
+}: { 
+  query: string
+  limit?: number
+  page?: number 
+}) {
+  try {
+    const skip = (page - 1) * limit
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          status: 'PUBLISHED',
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { excerpt: { contains: query, mode: 'insensitive' } },
+            { content: { contains: query, mode: 'insensitive' } },
+            { author: { name: { contains: query, mode: 'insensitive' } } },
+          ],
+        },
+        include: {
+          author: {
+            select: {
+              name: true,
+              avatarUrl: true,
+            },
+          },
+          tags: {
+            include: {
+              tag: {
+                select: {
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
+        },
+        orderBy: {
+          publishedAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.post.count({
+        where: {
+          status: 'PUBLISHED',
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { excerpt: { contains: query, mode: 'insensitive' } },
+            { content: { contains: query, mode: 'insensitive' } },
+            { author: { name: { contains: query, mode: 'insensitive' } } },
+          ],
+        },
+      }),
+    ])
+
+    return {
+      success: true,
+      data: {
+        posts,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    }
+  } catch (error) {
+    console.error('Error searching posts:', error)
+    return { success: false, data: null, error: 'Failed to search posts' }
+  }
+}
+
+export async function getPostsByCategory({
+  slug,
+  limit = 12,
+  page = 1,
+}: {
+  slug: string
+  limit?: number
+  page?: number
+}) {
+  try {
+    const category = await prisma.category.findUnique({
+      where: { slug },
+    })
+
+    if (!category) {
+      return { success: false, data: null, error: 'Category not found' }
+    }
+
+    const skip = (page - 1) * limit
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          status: 'PUBLISHED',
+          categoryId: category.id,
+        },
+        include: {
+          author: {
+            select: {
+              name: true,
+              avatarUrl: true,
+            },
+          },
+          tags: {
+            include: {
+              tag: {
+                select: {
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
+        },
+        orderBy: {
+          publishedAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.post.count({
+        where: {
+          status: 'PUBLISHED',
+          categoryId: category.id,
+        },
+      }),
+    ])
+
+    return {
+      success: true,
+      data: {
+        category,
+        posts,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    }
+  } catch (error) {
+    console.error('Error fetching posts by category:', error)
+    return { success: false, data: null, error: 'Failed to fetch category posts' }
+  }
+}
